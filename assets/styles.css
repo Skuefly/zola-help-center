@@ -1,0 +1,271 @@
+
+:root{
+  --bg:#fff; --bg-alt:#f6f6f7; --ink:#1a1c1d; --body:#303234; --muted:#6b7177;
+  --border:#e1e3e5; --shell:1120px; --article:720px;
+  --r:12px; --shadow:0 6px 24px rgba(26,28,29,.10),0 2px 6px rgba(26,28,29,.06);
+  --f-head:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --f-body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--f-body);color:var(--body);background:var(--bg);
+  -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.6}
+h1,h2,h3,h4{font-family:var(--f-head);color:var(--ink);line-height:1.25;margin:0}
+a{color:var(--accent-dark);text-decoration:none}
+a:hover{text-decoration:underline}
+.shell{max-width:var(--shell);margin:0 auto;padding:0 20px}
+
+/* the one piece of scaffolding that is not the real site — a thin bar so Josh
+   knows which brand he is looking at and that it is not published yet */
+.previewbar{background:#1a1c1d;color:#cfd3d6;font-size:12px;padding:7px 0}
+.previewbar .shell{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.previewbar b{color:#fff;font-weight:600}
+.previewbar .sw{margin-left:auto;display:flex;gap:6px}
+.previewbar button{font:inherit;background:transparent;color:#cfd3d6;border:1px solid #3a3d40;
+  border-radius:999px;padding:3px 12px;cursor:pointer}
+.previewbar button[aria-pressed=true]{background:#fff;color:#1a1c1d;border-color:#fff;font-weight:600}
+
+header.site{border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:20}
+header.site .shell{display:flex;align-items:center;gap:16px;height:62px}
+.wordmark{font-family:var(--f-head);font-weight:700;font-size:18px;color:var(--ink);letter-spacing:-.01em}
+.wordmark span{color:var(--accent-dark)}
+.navlink{font-size:13.5px;color:var(--muted);cursor:pointer;background:none;border:0;font-family:inherit}
+.navlink:hover{color:var(--ink)}
+
+.logolock{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;cursor:pointer;font:inherit}
+.logolock .mark{height:24px;width:auto;max-width:150px;display:block;flex:none}
+.logolock .txt{text-align:left;line-height:1.1}
+.logolock .txt i{font-style:normal;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.01em;
+  font-family:var(--f-head);padding-left:10px;margin-left:2px;border-left:1px solid var(--border);line-height:1}
+.storelink{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:5px;flex:none}
+.storelink:hover{color:var(--accent-dark)}
+
+/* Search in the sticky header, so it is reachable from an article three levels
+   deep and not only from the home hero. It lives OUTSIDE #app on purpose: the
+   view re-renders on every keystroke and an input inside would lose focus.
+
+   Collapsed to an icon until it is wanted. Josh: a permanent field up here
+   competing with the big one in the hero read as two search boxes for the same
+   thing. The icon is the affordance; the field opens on click. */
+.hsearch{position:relative;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;
+  min-height:34px}
+/* THE ICON DOES NOT MOVE. Josh: it should stay exactly where it is and end up
+   right-justified inside the field that opens. So it is anchored to the right
+   edge and taken out of the flow; the input grows leftward from under it,
+   because the container is right-justified. */
+.hsearch .sicon{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:1;
+  display:flex;align-items:center;justify-content:center;width:34px;height:34px;
+  border:0;background:none;border-radius:50%;cursor:pointer;color:var(--muted);
+  transition:color .15s ease}
+.hsearch .sicon:hover{color:var(--ink)}
+.hsearch input{width:0;min-width:0;opacity:0;padding:8px 0;font:inherit;font-size:13.5px;
+  color:var(--ink);background:var(--bg-alt);border:1px solid transparent;border-radius:999px;
+  transition:width .24s cubic-bezier(.4,0,.2,1),opacity .16s ease,padding .24s cubic-bezier(.4,0,.2,1)}
+.hsearch.open input{width:clamp(190px,28vw,310px);opacity:1;padding:8px 38px 8px 15px;
+  border-color:var(--border)}
+.hsearch.open .sicon{color:var(--muted)}
+.hsearch input:focus{outline:2px solid var(--accent);outline-offset:1px;background:#fff}
+/* type=search draws its own clear glyph in WebKit, which lands on top of .clr
+   below and reads as a doubled X. The styled one stays, the native one goes.
+   Only inside .hsearch — the homepage field has no .clr to replace it. */
+.hsearch input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+/* The clear button sits inboard of the anchored icon rather than under it. */
+.hsearch .clr{position:absolute;right:34px;top:50%;transform:translateY(-50%);border:0;background:none;
+  cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 4px;display:none}
+.hsearch.open.on .clr{display:block}
+@media(prefers-reduced-motion:reduce){.hsearch input{transition:none}}
+@media(max-width:680px){.storelink span{display:none}}
+
+.pdp{display:grid;gap:22px;grid-template-columns:1fr;border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;margin-bottom:32px;background:#fff}
+@media(min-width:720px){.pdp{grid-template-columns:240px 1fr}}
+.pdp .shot{background:var(--bg-alt);border-radius:9px;display:flex;align-items:center;justify-content:center;padding:12px}
+.pdp .shot img{width:100%;height:auto;max-height:180px;object-fit:contain}
+.pdp h1{font-size:25px;margin-bottom:6px}
+.pdp .blurb{color:var(--body);margin:0 0 14px;font-size:14px}
+.pdp .blurb.pts{padding-left:18px}
+.pdp .blurb.pts li{margin-bottom:3px}
+.pdp .buy{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:15px}
+.pdp .price{font-family:var(--f-head);font-weight:700;font-size:21px;color:var(--ink)}
+.pdp .cta{background:var(--accent-dark);color:#fff;border-radius:999px;padding:8px 17px;font-size:13.5px;font-weight:600}
+.pdp .cta:hover{background:var(--ink);text-decoration:none}
+.stars{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-bottom:13px}
+.stars b{color:var(--ink);font-family:var(--f-head);font-size:15px}
+.stars .s{color:#e8a33d;letter-spacing:1px}
+
+.measure{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 4px}
+.measure th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;
+  letter-spacing:.05em;padding:0 12px 6px 0;border-bottom:1px solid var(--border)}
+.measure td{padding:6px 12px 6px 0;border-bottom:1px solid var(--border);color:var(--ink)}
+.measure td:first-child{color:var(--muted)}
+.measure tr:last-child td{border-bottom:0}
+
+/* A REAL BAR. The fill used to be an inline <span>, and height on an inline box
+   does nothing — so every bar rendered as an empty track with a number floating
+   off to the right. Blockified, taller, and the value sits right at the bar's
+   end rather than a column away from it. */
+.bars{display:grid;gap:10px;margin:0}
+.bar{display:grid;grid-template-columns:minmax(78px,116px) 1fr 30px;align-items:center;gap:12px}
+.bar .t{font-size:13px;color:var(--body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{display:block;height:9px;background:#eceef0;border-radius:99px;overflow:hidden}
+.bar .fill{display:block;height:100%;background:var(--accent);border-radius:99px;min-width:3px}
+.bar .v{text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* At a glance: label above value, in a grid. A two-column definition list put
+   long values like "Rotomolded High-Density Polyethelene" in a narrow column
+   and wrapped them into a mess. */
+.specs{display:grid;grid-template-columns:1fr;gap:13px 22px;margin:0}
+@media(min-width:480px){.specs{grid-template-columns:1fr 1fr}}
+.specs dt{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+.specs dd{margin:0;font-size:13.5px;color:var(--ink);font-weight:500;line-height:1.4}
+
+.feat{display:grid;gap:10px;grid-template-columns:1fr;margin:0;padding:0;list-style:none}
+.feat li{display:grid;grid-template-columns:15px 1fr;gap:10px;align-items:start;
+  font-size:13px;color:var(--body);line-height:1.45}
+.feat .tick{color:var(--accent-dark);margin-top:3px}
+
+.notes{display:grid;gap:15px}
+.notes h4{font-size:11.5px;font-weight:600;color:var(--muted);margin:0 0 4px;letter-spacing:.02em}
+.notes p{margin:0;font-size:13px;color:var(--body);line-height:1.55}
+
+/* Columns rather than a grid: the sections are wildly different heights (a
+   one-row At a glance beside an eight-bullet Features) and a grid row is as tall
+   as its tallest cell, which left a hole. Columns flow instead. */
+.pdpgrid{column-gap:20px}
+@media(min-width:900px){.pdpgrid{column-count:2}}
+/* Each section is a card, so the page below the product reads as blocks with
+   edges rather than five headings and a wall of text. */
+.icard{break-inside:avoid;display:inline-block;width:100%;margin:0 0 20px;
+  border:1px solid var(--border);border-radius:var(--r);background:#fff;padding:18px 20px}
+.icard h3{font-size:14.5px;font-weight:600;color:var(--ink);margin:0 0 3px;font-family:var(--f-head)}
+.icard .isub{font-size:12px;color:var(--muted);margin:0 0 15px}
+.icard h3+.bars,.icard h3+.specs,.icard h3+.feat,.icard h3+.notes{margin-top:15px}
+
+.compgrid{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:760px){.compgrid{grid-template-columns:repeat(3,1fr)}}
+.compcard{border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;text-align:left;
+  font:inherit;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.compcard:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.compcard b{display:block;font-size:14px;color:var(--ink);font-family:var(--f-head)}
+.compcard span{font-size:12px;color:var(--muted)}
+.sechead{font-size:17px;margin:0 0 4px}
+.secsub{color:var(--muted);font-size:13px;margin:0 0 14px}
+
+/* The cover banner the original site had and the preview was missing: a
+   full-bleed photo with a scrim on the reading side so white type stays legible
+   over water or wood. */
+.cover{position:relative;display:block;height:230px;border-radius:16px;overflow:hidden;
+  margin:0 0 34px;text-decoration:none}
+.cover:hover{text-decoration:none}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cover::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(10,20,18,.58) 0%,rgba(10,20,18,.26) 42%,rgba(10,20,18,0) 68%)}
+.cover .inner{position:absolute;z-index:1;left:36px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;color:#fff}
+.cover .eyebrow{font-family:var(--f-head);font-size:11px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;opacity:.9}
+.cover .head{font-family:var(--f-head);font-size:clamp(23px,3vw,33px);font-weight:700;line-height:1.15;
+  color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.25)}
+.cover .go{display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:#fff;color:var(--ink);
+  font-family:var(--f-head);font-size:12px;font-weight:700;letter-spacing:.06em;padding:10px 18px;
+  border-radius:999px;transition:transform .12s ease,box-shadow .12s ease}
+.cover:hover .go{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.28)}
+@media(max-width:720px){.cover{height:190px;margin-bottom:26px}.cover .inner{left:20px}}
+
+.hero{background:var(--tint);border-bottom:1px solid var(--border);padding:52px 0 46px;text-align:center}
+.hero h1{font-size:31px;margin-bottom:8px}
+.hero p{color:var(--muted);margin:0 0 22px;font-size:15px}
+.search{max-width:560px;margin:0 auto;position:relative}
+.search input{width:100%;font:inherit;font-size:15px;padding:13px 16px 13px 42px;border-radius:999px;
+  border:1px solid var(--border);background:#fff;box-shadow:var(--shadow)}
+.search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);opacity:.45}
+
+main{padding:34px 0 64px;min-height:60vh}
+.crumb{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.crumb button{font:inherit;color:var(--muted);background:none;border:0;cursor:pointer;padding:0}
+.crumb button:hover{color:var(--ink);text-decoration:underline}
+.crumb i{font-style:normal;opacity:.5;margin:0 7px}
+
+.grid{display:grid;gap:14px}
+@media(min-width:640px){.grid.c2{grid-template-columns:repeat(2,1fr)}.grid.c3{grid-template-columns:repeat(3,1fr)}}
+.card{border:1px solid var(--border);border-radius:var(--r);padding:18px;background:#fff;
+  cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .12s,box-shadow .12s;width:100%}
+.card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.card h3{font-size:15.5px;margin-bottom:5px}
+.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.card .n{margin-top:9px;font-size:11.5px;color:var(--muted)}
+
+.pgrid{display:grid;gap:14px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:720px){.pgrid{grid-template-columns:repeat(3,1fr)}}
+.pcard{border:1px solid var(--border);border-radius:var(--r);padding:18px 14px;background:#fff;
+  cursor:pointer;text-align:center;font:inherit;transition:border-color .12s,box-shadow .12s}
+.pcard:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.pcard .noshot{display:block;width:100%;height:120px;background:var(--bg-alt);border-radius:8px;margin-bottom:12px}
+.pcard img{width:110px;height:88px;object-fit:contain;display:block;margin:0 auto 10px}
+.pcard h3{font-size:14.5px}
+.pcard .n{font-size:11.5px;color:var(--muted);margin-top:5px}
+
+.shelf{margin:0 0 30px}
+.shelf h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  margin-bottom:11px;display:flex;align-items:baseline;gap:8px}
+.shelf h2 em{font-style:normal;font-weight:400;opacity:.7}
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--border);
+  border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.row{background:#fff;padding:13px 16px;cursor:pointer;text-align:left;font:inherit;border:0;width:100%;
+  transition:background .1s}
+.row:hover{background:var(--tint)}
+.row b{display:block;font-weight:600;color:var(--ink);font-size:14.5px;margin-bottom:2px}
+.row span{color:var(--muted);font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more{margin-top:9px;font-size:13px;color:var(--accent-dark);background:none;border:0;cursor:pointer;
+  font-family:inherit;padding:0}
+.more:hover{text-decoration:underline}
+
+.artwrap{display:grid;gap:38px;grid-template-columns:1fr}
+@media(min-width:960px){.artwrap{grid-template-columns:minmax(0,var(--article)) 200px}}
+article h1{font-size:29px;margin-bottom:12px}
+.tldr{background:var(--tint);border-left:3px solid var(--accent);padding:13px 16px;
+  border-radius:0 8px 8px 0;margin:0 0 26px;color:var(--ink);font-size:14.5px}
+article h2{font-size:20px;margin:30px 0 10px}
+article h3{font-size:16px;margin:24px 0 8px}
+article p{margin:0 0 14px}
+article ul,article ol{margin:0 0 14px;padding-left:22px}
+article li{margin-bottom:5px}
+article table{border-collapse:collapse;width:100%;margin:0 0 18px;font-size:13.5px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top}
+article th{background:var(--bg-alt);font-weight:600;color:var(--ink);white-space:nowrap}
+article code{background:var(--bg-alt);padding:1px 5px;border-radius:4px;font-size:.9em}
+article hr{border:0;border-top:1px solid var(--border);margin:26px 0}
+.onthis{position:sticky;top:82px;align-self:start;font-size:12.5px}
+.onthis b{display:block;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--muted);margin-bottom:9px}
+.onthis a{display:block;color:var(--muted);padding:3px 0;border-left:2px solid var(--border);padding-left:10px}
+.onthis a:hover{color:var(--accent-dark);border-left-color:var(--accent)}
+@media(max-width:959px){.onthis{display:none}}
+
+.topics{border-top:1px solid var(--border);margin-top:44px;padding-top:30px}
+.topics h2{font-size:18px;margin-bottom:18px}
+.tg{display:grid;gap:26px}
+@media(min-width:640px){.tg{grid-template-columns:repeat(3,1fr)}}
+.tg h4{font-size:13.5px;margin-bottom:7px}
+.tg a,.tg button{display:block;font:inherit;font-size:13px;background:none;border:0;padding:2px 0;
+  color:var(--accent-dark);cursor:pointer;text-align:left}
+.tg a:hover,.tg button:hover{text-decoration:underline}
+
+footer.site{border-top:1px solid var(--border);background:var(--bg-alt);padding:26px 0;
+  font-size:12.5px;color:var(--muted);margin-top:30px}
+.empty{color:var(--muted);padding:26px 0}
+mark{background:var(--accent-light);color:var(--ink);padding:0 2px}
+.skip{position:absolute;left:-9999px;top:0;background:#fff;color:var(--ink);padding:10px 16px;z-index:99}
+.skip:focus{left:8px;top:8px;box-shadow:var(--shadow);border-radius:8px}
+/* A short page used to leave the footer floating mid-screen. The column keeps it
+   at the bottom of the window, and main taking the slack means it stays in the
+   normal flow on long pages rather than covering content the way fixed would. */
+body{min-height:100vh;display:flex;flex-direction:column}
+main{flex:1 0 auto}
+footer.site{border-top:1px solid var(--border);margin-top:40px;padding:22px 0;font-size:13px;color:var(--muted)}
+footer.site .shell{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.crumb a{color:var(--muted)}
+.crumb a:hover{color:var(--ink)}
+a.row,a.card,a.pcard,a.comp{display:block;text-decoration:none;color:inherit}
+a.row:hover,a.card:hover,a.pcard:hover,a.comp:hover{text-decoration:none}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+form.search{position:relative}
