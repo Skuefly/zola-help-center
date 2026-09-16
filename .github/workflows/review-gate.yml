@@ -1,0 +1,126 @@
+name: Review gate
+
+# The gate used to live only on Josh's Mac. Every cloud session merges in the
+# cloud, so the gate was never in the path — 65 merges went through in one week
+# and it never held a single one. This runs on GitHub instead, where the merges
+# actually happen.
+#
+# What it does: reads the pull request's diff, and if it touches something Josh
+# said needs his eyes, it renames the PR "Gate-held: …" and comments why. Nothing
+# is blocked until this is also set as a required check (see the handoff branch).
+#
+# To let one through on purpose: put a line in the PR body that reads
+#   Gate-approved: <the reason>
+# A named reason, never a silent bypass. Clearing a hold un-prefixes the title
+# and comments why it was let through, so the PR list shows current state.
+#
+# THE CHECK ITSELF ALWAYS SUCCEEDS (2026-08-08). A hold used to be a failed job,
+# which is the same signal GitHub uses for "something is broken" — every hold,
+# even one a cloud session resolved in the same minute by adding a Gate-approved
+# line, fired Josh a "run failed" email indistinguishable from a real break.
+# `continue-on-error` on the check step keeps `review_gate.py`'s exit code
+# available to the steps below (a real "held" vs "clear" signal) without letting
+# it fail the job. The title prefix and the comment are the signal now, not a
+# red X. See `chief/README.md`'s gate proof for how this is verified weekly.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # the gate needs the whole diff, not a shallow slice
+
+      - name: Look at what this pull request changes
+        id: check
+        continue-on-error: true    # the JOB always succeeds; steps.check.outcome still carries held/clear
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 .github/scripts/review_gate.py
+
+      - name: Mark the pull request as held
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # The title prefix is the signal now (the check no longer goes red) and
+          # is also how the Chief's weekly sweep finds held work by name.
+          case "$TITLE" in
+            "Gate-held: "*) ;;
+            *) gh pr edit "$NUMBER" --repo "$REPO" --title "Gate-held: $TITLE" || true ;;
+          esac
+          gh pr comment "$NUMBER" --repo "$REPO" --body-file gate-report.md || true
+
+      # THE HOLD HAS TO REACH JOSH SOMEWHERE HE LOOKS (Josh, 2026-08-24).
+      #
+      # A hold exists so that Josh sees the change before it ships. Until now its
+      # only route to him was a GitHub comment notification — an email he does not
+      # open: "I never check them. I just mark all as read." A gate whose signal
+      # lands in a folder nobody reads is decoration, not a gate.
+      #
+      # So the hold also opens a row in the Hub's alert inbox, the channel built for
+      # exactly this on 2026-08-21. Keyed `gate-pr-<n>`: re-running the gate on a new
+      # push ages the SAME row rather than stacking a second one, and the clear step
+      # below closes it the moment the hold is resolved — so the Dashboard shows what
+      # is held RIGHT NOW, and empties itself.
+      - name: Open a hold on the Hub Dashboard
+        if: steps.check.outcome == 'failure'
+        run: |
+          curl -sS --max-time 20 -X POST "$HUB_URL/api/alerts" \
+            -H 'Content-Type: application/json' \
+            -H "x-alert-secret: $ALERT_SECRET" \
+            -d "$(jq -nc --arg k "gate-pr-$NUMBER" --arg t "Held for your review: PR #$NUMBER $TITLE" \
+                        --arg d "$(head -c 1500 gate-report.md 2>/dev/null)" \
+                        --arg u "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$NUMBER" \
+                  '{source:"GITHUB_ACTIONS",key:$k,severity:"WARNING",title:$t,detail:$d,url:$u}')" || true
+        env:
+          HUB_URL: https://hub.tripletailco.com
+          ALERT_SECRET: ${{ secrets.ALERT_INGEST_SECRET }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+
+      - name: Clear a resolved hold
+        # Runs on a clear PR too (nothing to do — no gate-report.md, both guards below
+        # are false) and on a genuinely clean PR (never held, no prefix to strip either).
+        if: steps.check.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [ -f gate-report.md ]; then
+            gh pr comment "$NUMBER" --repo "$REPO" --body-file gate-report.md || true
+          fi
+          case "$TITLE" in
+            "Gate-held: "*) gh pr edit "$NUMBER" --repo "$REPO" --title "${TITLE#Gate-held: }" || true ;;
+          esac
+
+      # Closes the Dashboard row the hold opened. Runs on every clear pull request,
+      # including ones never held — clearing a key that was never raised is a no-op
+      # the alert inbox absorbs, and the alternative (clearing only when a prefix was
+      # found) would strand a row whose title someone had renamed by hand.
+      - name: Close the hold on the Hub Dashboard
+        if: steps.check.outcome == 'success'
+        run: |
+          curl -sS --max-time 20 -X POST "$HUB_URL/api/alerts" \
+            -H 'Content-Type: application/json' \
+            -H "x-alert-secret: $ALERT_SECRET" \
+            -d "$(jq -nc --arg k "gate-pr-$NUMBER" '{source:"GITHUB_ACTIONS",key:$k,status:"ok"}')" || true
+        env:
+          HUB_URL: https://hub.tripletailco.com
+          ALERT_SECRET: ${{ secrets.ALERT_INGEST_SECRET }}
+          NUMBER: ${{ github.event.pull_request.number }}
