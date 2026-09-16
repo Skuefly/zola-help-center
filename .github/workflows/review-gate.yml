@@ -30,6 +30,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write        # for the `gate-hold` status below — the half that actually blocks
 
 jobs:
   gate:
@@ -124,3 +125,46 @@ jobs:
           HUB_URL: https://hub.tripletailco.com
           ALERT_SECRET: ${{ secrets.ALERT_INGEST_SECRET }}
           NUMBER: ${{ github.event.pull_request.number }}
+
+      # THE HALF THAT ACTUALLY BLOCKS (Josh, by chips, 2026-09-16).
+      #
+      # Between 2026-08-08 and today the gate renamed a title and nothing else: the
+      # JOB was made to always succeed so a hold would stop firing "run failed" emails
+      # that looked like a real break. Correct on its own terms — but it meant 20+ pull
+      # requests merged still carrying `Gate-held:`, and it silently voided the whole
+      # point of making `gate` a required check. A green check requires nothing.
+      #
+      # So the hold gets its own signal, separate from the job's own success: a commit
+      # status named `gate-hold`, red only when this pull request is held. The JOB still
+      # ends green, so no "run failed" email — but `gate-hold` is a required check, so a
+      # held pull request is genuinely unmergeable until the hold is resolved.
+      #
+      # Josh resolves it the documented way: put `Gate-approved: <reason>` in the body.
+      # This workflow runs on `edited`, so the status flips to success within seconds and
+      # the pull request becomes mergeable. `enforce_admins` is false everywhere, so he
+      # can also merge straight past it — deliberately. This is a speed bump, not a lock.
+      #
+      # `always()` matters: without it a crash in any step above would leave `gate-hold`
+      # never posted. Never-posted reads as pending, which blocks — fail-closed on
+      # purpose, and `gate` goes red in that case anyway, which is a real break worth mail.
+      - name: Publish the blocking signal
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          HELD: ${{ steps.check.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$HELD" = "failure" ]; then
+            state="failure"
+            desc="Held for Josh. Add 'Gate-approved: <reason>' to the description to release it."
+          else
+            state="success"
+            desc="Nothing here needs Josh's eyes."
+          fi
+          gh api -X POST "repos/$REPO/statuses/$SHA" \
+            -f state="$state" \
+            -f context="gate-hold" \
+            -f description="$desc" \
+            -f target_url="$RUN_URL" >/dev/null
