@@ -11,9 +11,15 @@ import re
 import subprocess
 import sys
 
-BASE = os.environ["BASE_SHA"]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gate_rules import workflow_change_is_routine  # noqa: E402
+
+EVENT_BASE = os.environ["BASE_SHA"]
 HEAD = os.environ["HEAD_SHA"]
 BODY = os.environ.get("PR_BODY") or ""
+# The base branch's name as GitHub reports it NOW (the workflow asks the API just
+# before running this), not the one frozen into the event. Empty if that ask failed.
+BASE_REF = (os.environ.get("BASE_REF") or "").strip()
 
 # An override must name a reason. "Gate-approved:" with nothing after it does not count.
 override = re.search(r"^Gate-approved:[ \t]*(\S.*)$", BODY, re.M)
@@ -23,7 +29,44 @@ def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
+# WHAT "THIS PULL REQUEST'S CHANGES" ARE MEASURED AGAINST (2026-09-19, PR #910).
+#
+# Every diff below is `BASE...HEAD`: what HEAD adds since it split from BASE. BASE
+# used to be the event's base.sha, a snapshot taken when the event fired. #910 was
+# stacked on #908's branch; after #908 merged, #910 was rebased onto main and
+# force-pushed, then retargeted two seconds later. The push's run still carried
+# the old branch's tip, whose split point with the rebased HEAD was an older
+# main, so every PR merged since (#907's proxy write among them) read as #910's
+# own lines. Rule 4 held it for code it did not contain, and that run finished
+# last, so its hold overwrote three correct clears.
+#
+# So BASE is now the CURRENT tip of the branch the PR merges into right now,
+# fetched fresh. Fetching the event's base.ref would not have been enough: the old
+# stacked branch still exists, untouched, so a fresh fetch of it reproduces the
+# same stale split point. Only the PR's live base names the right branch.
+#
+# If that cannot be read, the event's snapshot is the fallback. It can only
+# over-hold (an older split point sweeps in MORE lines, never fewer), so a
+# failure here costs Josh a false hold, never a missed one.
+def current_base():
+    if BASE_REF:
+        try:
+            git("fetch", "--quiet", "--no-tags", "origin",
+                f"+refs/heads/{BASE_REF}:refs/remotes/origin/{BASE_REF}")
+            tip = git("rev-parse", "--verify", f"refs/remotes/origin/{BASE_REF}^{{commit}}").strip()
+            print(f"Gate: comparing against {BASE_REF} as it is now ({tip[:8]}).")
+            return tip
+        except subprocess.CalledProcessError as err:
+            print(f"Gate: could not fetch {BASE_REF} ({(err.stderr or '').strip()}); "
+                  "falling back to the event's base.")
+    print(f"Gate: comparing against the event's base snapshot ({EVENT_BASE[:8]}).")
+    return EVENT_BASE
+
+
+BASE = current_base()
+
 status = [ln.split("\t") for ln in git("diff", "--name-status", f"{BASE}...{HEAD}").splitlines() if ln]
+status_rows = [(row[0], row[-1]) for row in status]
 added_lines = [
     ln[1:] for ln in git("diff", "--unified=0", f"{BASE}...{HEAD}").splitlines()
     if ln.startswith("+") and not ln.startswith("+++")
@@ -56,8 +99,38 @@ for line in added_lines:
 
 # 2. Anything that changes how the robots run. Workflow edits change what can
 #    deploy, unattended, with the deploy keys attached.
+#
+#    ONE SHAPE IS NOW EXEMPT (Josh, 2026-09-16, by chips): a step that only runs
+#    an existing test. He kept the gate but asked that the routine ones stop
+#    costing him a hand-edit — "anything touching deploys, secrets, or keys
+#    still stops for me". `workflow_change_is_routine` is where that line is
+#    drawn, and it is deliberately narrow; see gate_rules.py.
 if any(p.startswith(".github/workflows/") for p in paths):
-    holds.append("Changes an automation workflow (what runs by itself, with the deploy keys).")
+    workflow_diff = git("diff", "--unified=0", f"{BASE}...{HEAD}", "--", ".github/workflows/").splitlines()
+    if not workflow_change_is_routine(status_rows, workflow_diff):
+        holds.append("Changes an automation workflow (what runs by itself, with the deploy keys).")
+
+# 2b. THE GATE'S OWN RULES ALWAYS STOP. Rule 2 lets Claude approve a narrow
+#     class of workflow change on its own; that is only safe while Claude
+#     cannot also widen what "narrow" means. A gate whose keeper can edit the
+#     lock is not a gate, so every edit to these files waits for Josh —
+#     including the one that introduced this rule.
+#
+#     block-gate-approval.sh joined them on 2026-09-18 (Josh, by chips). It is the
+#     hook that stops a session writing Josh's approval line at all, so it enforces
+#     the gate exactly as much as the two rule files do — and until that day a
+#     session could weaken it without anyone approving, which this pull request
+#     itself demonstrated by sailing through untouched.
+#
+#     NOT held, and deliberately: .claude/settings.json, which WIRES that hook to the
+#     tools. Removing the matcher there disables the lock without touching the script,
+#     so this is a real remaining gap — it is left open because that file also carries
+#     every permission rule, and holding it would put an approval in front of routine
+#     tooling changes. Josh's call if the trade ever looks wrong.
+if any(p in (".github/scripts/review_gate.py",
+             ".github/scripts/gate_rules.py",
+             ".github/scripts/block-gate-approval.sh") for p in paths):
+    holds.append("Changes the review gate's own rules (what Claude may approve without you).")
 
 # 3. Mass deletion. Big removals are the one mistake that is expensive to undo.
 if len(deleted) > 25:
@@ -144,13 +217,21 @@ if override and not never_override:
     print(f"Gate: held then released.\n{reasons}\nReason: {override.group(1).strip()}")
     sys.exit(0)
 
+# WHAT THIS COMMENT MAY SAY (Josh, 2026-09-18). It used to tell him to edit this pull
+# request's description, and sessions read that and sent him to GitHub to do it — twice in
+# two days, months after the Approve button in Hub World made that unnecessary. His words:
+# "I will never open a GitHub repo like that 830, hit edit, and make changes there... Never
+# ask me to do that again in any session ever." So the hold names his own button and nothing
+# else. The raw line stays documented for the machine that writes it (approveGate() in
+# hub-world/tools/serve.mjs) and for a human reading the history — never as an instruction.
 with open("gate-report.md", "w") as fh:
     fh.write(
         "**Review gate: held for Josh.**\n\n"
         f"{reasons}\n\n"
         "Nothing is wrong yet — this only means the change touches something that "
-        "needs a human look. To let it through, add a line to this pull request's "
-        "description:\n\n```\nGate-approved: <why this is fine>\n```\n"
+        "needs a human look.\n\n"
+        "**To let it through: open Hub World, then Josh ▾ → Approve a held change.** "
+        "One press, on your own Mac. Nothing to edit here.\n"
     )
 print(f"Gate: HELD.\n{reasons}")
 sys.exit(1)
