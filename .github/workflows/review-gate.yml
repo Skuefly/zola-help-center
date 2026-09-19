@@ -47,7 +47,17 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: python3 .github/scripts/review_gate.py
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        # The base branch is asked for NOW, not read from the event: a push and a
+        # retarget seconds apart leave the push's run holding the old branch (PR #910,
+        # 2026-09-19). If the ask fails the script falls back to the event's snapshot,
+        # which can only over-hold. The whole story is at the top of review_gate.py.
+        run: |
+          BASE_REF="$(gh api "repos/$REPO/pulls/$NUMBER" --jq .base.ref)" || BASE_REF=""
+          export BASE_REF
+          python3 .github/scripts/review_gate.py
 
       - name: Mark the pull request as held
         if: steps.check.outcome == 'failure'
