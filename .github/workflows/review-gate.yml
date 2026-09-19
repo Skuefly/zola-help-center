@@ -22,9 +22,28 @@ name: Review gate
 # available to the steps below (a real "held" vs "clear" signal) without letting
 # it fail the job. The title prefix and the comment are the signal now, not a
 # red X. See `chief/README.md`'s gate proof for how this is verified weekly.
+#
+# THE GATE JUDGES WITH MAIN'S RULES, NEVER THE PULL REQUEST'S (Josh, by chips,
+# 2026-09-19). On `pull_request`, GitHub runs this file AND the scripts it calls
+# from the pull request's own copy. PR #918 proved it: a line it added to
+# review_gate.py printed in its own gate run. So a pull request that deleted rule
+# 2b ("the gate's own rules always stop") was judged by the copy without rule 2b,
+# and cleared itself — the keeper editing the lock, which 2b exists to stop.
+#
+# `pull_request_target` runs this file, and checks out the scripts, from main,
+# whichever branch the pull request targets (a test PR aimed at a feature branch,
+# #923, got no gate run at all: GitHub reads this trigger from the default branch
+# only). The pull request's commits are fetched as data and only ever read by
+# `git diff` / `git show`; nothing from them is run.
+# Keep it that way: never check out the pull request's head here, and never
+# paste `${{ }}` into a `run:` block (pass it through `env:`), because this job
+# holds a write token and the alert secret.
+#
+# The trade: a change to the gate itself only takes effect once it merges. The
+# pull request that makes the change is judged by the rules it is replacing.
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, edited]
 
 permissions:
@@ -36,6 +55,8 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
+      # No `ref`: on pull_request_target that is main, so the gate's scripts
+      # below are the merged ones, not the pull request's.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0        # the gate needs the whole diff, not a shallow slice
@@ -54,7 +75,10 @@ jobs:
         # retarget seconds apart leave the push's run holding the old branch (PR #910,
         # 2026-09-19). If the ask fails the script falls back to the event's snapshot,
         # which can only over-hold. The whole story is at the top of review_gate.py.
+        # The pull request's own commits are fetched as data (the checkout above is
+        # the base branch), so the diff can be read without running any of it.
         run: |
+          git fetch --quiet --no-tags origin "+refs/pull/$NUMBER/head:refs/remotes/pull/$NUMBER/head"
           BASE_REF="$(gh api "repos/$REPO/pulls/$NUMBER" --jq .base.ref)" || BASE_REF=""
           export BASE_REF
           python3 .github/scripts/review_gate.py
