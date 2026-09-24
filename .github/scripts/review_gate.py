@@ -25,8 +25,14 @@ BASE_REF = (os.environ.get("BASE_REF") or "").strip()
 override = re.search(r"^Gate-approved:[ \t]*(\S.*)$", BODY, re.M)
 
 
+# UNREADABLE BYTES ARE REPLACED, NEVER FATAL (2026-09-23, tripletail-legal #28). A diff
+# carrying a byte that is not UTF-8 (a PDF drawing set, a Windows-1252 quote mark)
+# crashed this script, and a crash counts as held — so Josh's approval line was read
+# and still could not release the change. Replacing the byte cannot hide a rule
+# match: the rules look at file paths and ASCII keywords, never at those bytes.
 def git(*args):
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+    return subprocess.run(["git", *args], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", check=True).stdout
 
 
 # WHAT "THIS PULL REQUEST'S CHANGES" ARE MEASURED AGAINST (2026-09-19, PR #910).
