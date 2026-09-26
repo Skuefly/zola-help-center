@@ -1,5 +1,8 @@
 
 (function(){
+  var INDEX = null;
+
+  function bindHeader(){
   var box = document.getElementById('hsearch');
   if(box){
     var icon = document.getElementById('hqopen'), input = document.getElementById('hq');
@@ -22,25 +25,30 @@
 
   /* The footer year is written at build time, so a site that is not rebuilt over
      New Year would sit there showing last year. Correct it against the reader's
-     own clock. Above the early return below, because this belongs on all 259
-     pages, not only the two that carry a search index. Without JS the built year
-     stands, which is right until the 1st of January and never far wrong after. */
+     own clock. In the header half, because this belongs on all 259 pages, not only
+     the two that carry a search index. Without JS the built year stands, which is
+     right until the 1st of January and never far wrong after. */
   var yr = document.getElementById('yr');
   if(yr){
     var now = String(new Date().getFullYear());
     if(yr.textContent !== now) yr.textContent = now;
   }
+  }
 
+  function bindPage(){
   var results = document.getElementById('results');
   var q = document.getElementById('q');
   if(!results || !q) return;
 
-  var INDEX = null, ROOT = document.documentElement.getAttribute('data-root') || '';
+  var ROOT = document.documentElement.getAttribute('data-root') || '';
   var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
 
   function load(){
     if(INDEX) return Promise.resolve(INDEX);
+    /* An index handed to the page directly (the Hub's framed preview does this,
+       because a frame has no /assets to fetch) is used as-is. */
+    if(window.__HELP_INDEX__) { INDEX = window.__HELP_INDEX__; return Promise.resolve(INDEX); }
     return fetch(ROOT + '/assets/search.json').then(function(r){ return r.json(); })
       .then(function(j){ INDEX = j; return j; });
   }
@@ -85,4 +93,13 @@
   if(form) form.addEventListener('submit', function(e){
     if(document.getElementById('browse') || location.pathname.indexOf('/search') >= 0){ e.preventDefault(); run(q.value); }
   });
+  }
+
+  window.__helpBindPage = bindPage;
+  /* Only the framed preview calls this, when the Hub hands it a fresh index after
+     an article is edited. On the published site the index is a file that changes
+     only when the site is rebuilt, so nothing ever drops it. */
+  window.__helpDropIndex = function(){ INDEX = null; };
+  bindHeader();
+  bindPage();
 })();

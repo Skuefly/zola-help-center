@@ -14,16 +14,6 @@ a{color:var(--accent-dark);text-decoration:none}
 a:hover{text-decoration:underline}
 .shell{max-width:var(--shell);margin:0 auto;padding:0 20px}
 
-/* the one piece of scaffolding that is not the real site — a thin bar so Josh
-   knows which brand he is looking at and that it is not published yet */
-.previewbar{background:#1a1c1d;color:#cfd3d6;font-size:12px;padding:7px 0}
-.previewbar .shell{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.previewbar b{color:#fff;font-weight:600}
-.previewbar .sw{margin-left:auto;display:flex;gap:6px}
-.previewbar button{font:inherit;background:transparent;color:#cfd3d6;border:1px solid #3a3d40;
-  border-radius:999px;padding:3px 12px;cursor:pointer}
-.previewbar button[aria-pressed=true]{background:#fff;color:#1a1c1d;border-color:#fff;font-weight:600}
-
 header.site{border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:20}
 header.site .shell{display:flex;align-items:center;gap:16px;height:62px}
 .wordmark{font-family:var(--f-head);font-weight:700;font-size:18px;color:var(--ink);letter-spacing:-.01em}
@@ -175,8 +165,13 @@ header.site .shell{display:flex;align-items:center;gap:16px;height:62px}
 .hero h1{font-size:31px;margin-bottom:8px}
 .hero p{color:var(--muted);margin:0 0 22px;font-size:15px}
 .search{max-width:560px;margin:0 auto;position:relative}
+/* JT-364 (Josh, 2026-08-13): "reduce the drop shadow behind the contents search bar,
+   way more subtle." A targeted rule rather than touching --shadow — that token is
+   shared by .compcard:hover, .card:hover, .pcard:hover and .skip:focus, so dialing it
+   down here would have flattened every card hover and the skip-link outline too. This
+   field is the only thing that should get lighter. */
 .search input{width:100%;font:inherit;font-size:15px;padding:13px 16px 13px 42px;border-radius:999px;
-  border:1px solid var(--border);background:#fff;box-shadow:var(--shadow)}
+  border:1px solid var(--border);background:#fff;box-shadow:0 2px 8px rgba(26,28,29,.07)}
 .search input:focus{outline:2px solid var(--accent);outline-offset:1px}
 .search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);opacity:.45}
 
@@ -216,11 +211,36 @@ main{padding:34px 0 64px;min-height:60vh}
 .row:hover{background:var(--tint)}
 .row b{display:block;font-weight:600;color:var(--ink);font-size:14.5px;margin-bottom:2px}
 .row span{color:var(--muted);font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.more{margin-top:9px;font-size:13px;color:var(--accent-dark);background:none;border:0;cursor:pointer;
-  font-family:inherit;padding:0}
-.more:hover{text-decoration:underline}
+/* A long shelf keeps its tail behind a count. The toggle is the last row of the
+   same card rather than a link under it, so a shelf stays one object however far
+   it is opened, and it is a <details> so a customer who has not run any script yet
+   can still open it. */
+/* The <details> is a plain block inside the .rows flex column, so the hairlines
+   between the rows it hides are drawn by its own wrapper rather than by the
+   parent's gap, which does not reach inside it. */
+.restrows{display:flex;flex-direction:column;gap:1px;background:var(--border);padding-top:1px}
+.more{display:block;background:#fff;margin:0;padding:12px 16px;cursor:pointer;list-style:none;
+  font:600 13px/1.4 var(--f-body);color:var(--accent-dark);transition:background .1s}
+.more::-webkit-details-marker{display:none}
+.more::marker{content:""}
+.more:hover{background:var(--tint);text-decoration:underline}
+.rest .b,.rest[open] .a{display:none}
+.rest[open] .b{display:inline}
+.aftergrid{margin-top:14px}
 
-.artwrap{display:grid;gap:38px;grid-template-columns:1fr}
+/* A GRID ITEM WILL NOT SHRINK BELOW ITS OWN MIN-CONTENT unless it is told to,
+   and an article carrying a wide table has a big one. A bare 1fr track means
+   minmax(auto,1fr), so between the shell width and the 960 breakpoint below, the
+   track grew to the table's min-content and the whole article — headings and
+   paragraphs with it — rendered wider than the page and was clipped on the right
+   with nothing to scroll. Measured in Chromium at an 812px viewport: shell 812,
+   artwrap 772, article 827. The wide rule under this one already spells
+   minmax(0,...); this is the same trap at the narrow end. The item's own
+   min-width goes with it — letting the track shrink is not enough on its own —
+   and tscroll then does the job it was written for, scrolling the table instead
+   of the page. Nothing moves at any width that was not already overflowing. */
+.artwrap{display:grid;gap:38px;grid-template-columns:minmax(0,1fr)}
+.artwrap>*{min-width:0}
 @media(min-width:960px){.artwrap{grid-template-columns:minmax(0,var(--article)) 200px}}
 article h1{font-size:29px;margin-bottom:12px}
 .tldr{background:var(--tint);border-left:3px solid var(--accent);padding:13px 16px;
